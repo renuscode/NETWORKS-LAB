@@ -1,0 +1,49 @@
+#include <stdio.h>
+#include <string.h>
+
+long long inttobin(int num) {
+    if (num == 0) return 0;
+    long long bin = 0;      
+    long long placeValue = 1; 
+    int r;
+    while (num > 0) {
+        r = num % 2;
+        bin = bin + (r * placeValue); 
+        placeValue = placeValue * 10;
+        num = num / 2;
+    }
+    return bin;
+}
+
+int bintoint(long long binaryNum) {
+    int total = 0;
+    int placeValue = 1;
+    long long r;
+    while (binaryNum > 0) {
+        r = binaryNum % 10; 
+        total = total + (r * placeValue); 
+        placeValue = placeValue * 2;       
+        binaryNum = binaryNum / 10; 
+    }
+    return total;
+}
+int findComplement(int num) {
+    if (num == 0) return 1;
+
+    int complementSum = 0;
+    long placeValue = 1; 
+    int temp = num;
+
+    while (temp > 0) {
+        int r = temp % 2;
+        
+        int flippedDigit = (r == 1) ? 0 : 1; 
+        complementSum = complementSum + (flippedDigit * placeValue);
+        placeValue = placeValue * 2; 
+
+        temp = temp / 2;
+    }
+
+    return complementSum;
+}
+
