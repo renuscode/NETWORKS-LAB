@@ -1,0 +1,63 @@
+#include <stdio.h>
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+int findMaxXOR_Recursive(int* group1, int size1, int* group2, int size2, int bitMask) {
+    if (size1 == 0 || size2 == 0) return 0;
+    if (bitMask == 0) return 0;
+    int g1_zeros[size1], g1_ones[size1];
+    int z1_count = 0, o1_count = 0;
+    for (int i = 0; i < size1; i++) {
+        if (group1[i] & bitMask) {
+            g1_ones[o1_count++] = group1[i];
+        } else {
+            g1_zeros[z1_count++] = group1[i];
+        }
+    }
+    int g2_zeros[size2], g2_ones[size2];
+    int z2_count = 0, o2_count = 0;
+    for (int i = 0; i < size2; i++) {
+        if (group2[i] & bitMask) {
+            g2_ones[o2_count++] = group2[i];
+        } else {
+            g2_zeros[z2_count++] = group2[i];
+        }
+    }
+    int nextMask = bitMask / 2;
+    if ((o1_count > 0 && z2_count > 0) || (z1_count > 0 && o2_count > 0)) {
+        int path1 = 0, path2 = 0;   
+        if (o1_count > 0 && z2_count > 0) {
+            path1 = findMaxXOR_Recursive(g1_ones, o1_count, g2_zeros, z2_count, nextMask);
+        }
+        if (z1_count > 0 && o2_count > 0) {
+            path2 = findMaxXOR_Recursive(g1_zeros, z1_count, g2_ones, o2_count, nextMask);
+        }
+        return bitMask | MAX(path1, path2);
+    }
+    if (o1_count > 0 && o2_count > 0) {
+        return findMaxXOR_Recursive(g1_ones, o1_count, g2_ones, o2_count, nextMask);
+    }
+    return findMaxXOR_Recursive(g1_zeros, z1_count, g2_zeros, z2_count, nextMask);
+}
+
+int findMaximumXOR(int* nums, int numsSize) {
+    if (numsSize < 2) return 0;
+    int bitMask = 1 << 30;
+    while (bitMask > 0) {
+        int zeros[numsSize];
+        int ones[numsSize];
+        int z_count = 0, o_count = 0;
+        for (int j = 0; j < numsSize; j++) {
+            if (nums[j] & bitMask) {
+                ones[o_count++] = nums[j];
+            } else {
+                zeros[z_count++] = nums[j];
+            }
+        }
+        if (o_count > 0 && z_count > 0) {
+            return bitMask | findMaxXOR_Recursive(ones, o_count, zeros, z_count, bitMask / 2);
+        }
+        
+        bitMask /= 2;
+    }
+
+    return 0; 
+}
