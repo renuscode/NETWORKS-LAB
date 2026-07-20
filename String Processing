@@ -1,0 +1,36 @@
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+void solve() {
+    char s[10001]; // Array to hold the input string
+    int sum = 0;
+
+    // Read the string for the current test case
+    if (scanf("%s", s) != 1) return;
+
+    // Iterate through each character until the null terminator
+    for (int i = 0; s[i] != '\0'; i++) {
+        if (isdigit(s[i])) {
+            // Convert character digit to its integer value
+            sum += (s[i] - '0');
+        }
+    }
+
+    // Print the final accumulated sum
+    printf("%d\n", sum);
+}
+
+int main() {
+    int t;
+    
+    // Read the total number of test cases
+    if (scanf("%d", &t) != 1) return 0;
+
+    // Loop through each test case
+    while (t--) {
+        solve();
+    }
+
+    return 0;
+}
