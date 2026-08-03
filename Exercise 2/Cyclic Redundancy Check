@@ -1,0 +1,150 @@
+#include <stdio.h>
+#include <string.h>
+char textData[100];
+char binaryStream[800];
+char frames[100][9];
+int numFrames = 0;
+char divisor[30];
+int main()
+{
+    int textLen, streamLen, divLen, dataBitsPerFrame;
+    int i, j, k;
+    char choice;
+    printf("\n============================================\n");
+    printf(" CRC ERROR DETECTION \n");
+    printf("============================================\n");
+    printf("Enter Text Message: ");
+    scanf(" %[^\n]", textData);
+    textLen = strlen(textData);
+    printf("Enter Generator Polynomial (Binary): ");
+    scanf("%s", divisor);
+    divLen = strlen(divisor);
+    if (divLen >= 8 || divLen < 2) {
+        printf("\nError: Divisor must be between 2 and 7 bits to fit an 8-bit frame.\n");
+        return 0;
+    }
+    int crcBitsLen = divLen - 1;
+    dataBitsPerFrame = 8 - crcBitsLen;
+    k = 0;
+    for(i = 0; i < textLen; i++) {
+        char ch = textData[i];
+        for(j = 7; j >= 0; j--) {
+            binaryStream[k++] = ((ch >> j) & 1) + '0';
+        }
+    }
+    binaryStream[k] = '\0';
+    streamLen = strlen(binaryStream);
+    int streamIdx = 0;
+    while (streamIdx < streamLen) {
+        char chunk[9] = {0};
+        char dividend[20] = {0};
+        char remain[20] = {0};
+        for (j = 0; j < dataBitsPerFrame; j++) {
+            if (streamIdx < streamLen) {
+                chunk[j] = binaryStream[streamIdx++];
+            } else {
+                chunk[j] = '0';
+            }
+        }
+        chunk[dataBitsPerFrame] = '\0';
+        strcpy(dividend, chunk);
+        for (j = 0; j < crcBitsLen; j++) {
+            dividend[dataBitsPerFrame + j] = '0';
+        }
+        dividend[dataBitsPerFrame + crcBitsLen] = '\0';
+        strcpy(remain, dividend);
+        for (j = 0; j < dataBitsPerFrame; j++) {
+            if (remain[j] == '1') {
+                for (k = 0; k < divLen; k++) {
+                    remain[j + k] = (remain[j + k] == divisor[k]) ? '0' : '1';
+                }
+            }
+        }
+        char finalFrame[9];
+        strncpy(finalFrame, chunk, dataBitsPerFrame);
+        for (j = 0; j < crcBitsLen; j++) {
+            finalFrame[dataBitsPerFrame + j] = remain[dataBitsPerFrame + j];
+        }
+        finalFrame[8] = '\0';
+        strcpy(frames[numFrames++], finalFrame);
+    }
+    printf("\nGenerated Frames (Each strictly size 8: %d Data + %d CRC):\n", dataBitsPerFrame, crcBitsLen);
+    for(i = 0; i < numFrames; i++) {
+        printf("Frame %d : %s\n", i + 1, frames[i]);
+    }
+    printf("\nDo you want to simulate error(s)? (Y/N): ");
+    scanf(" %c", &choice);
+    if(choice == 'Y' || choice == 'y') {
+        int numErrors;
+        printf("Enter number of bits to flip (1/2): ");
+        scanf("%d", &numErrors);
+        for(i = 0; i < numErrors; i++) {
+            int frameNo, bitPos;
+            printf("\n[Error %d] Enter Frame Number (1-%d): ", i + 1, numFrames);
+            scanf("%d", &frameNo);
+            printf("[Error %d] Enter Bit Position to Flip (1-8): ", i + 1);
+            scanf("%d", &bitPos);
+            if(frameNo >= 1 && frameNo <= numFrames && bitPos >= 1 && bitPos <= 8) {
+                frames[frameNo-1][bitPos-1] = (frames[frameNo-1][bitPos-1] == '0') ? '1' : '0';
+                printf("-> Success: Bit flipped in Frame %d.\n", frameNo);
+            } else {
+                printf("-> Invalid selection. Skipping this specific flip.\n");
+            }
+        }
+    }
+    printf("\nReceiver Checking Frames...\n");
+    int globalError = 0;
+    char receivedBinaryStream[800] = {0};
+    int recStreamIdx = 0;
+    for(i = 0; i < numFrames; i++)
+    {
+        char remainCheck[20];
+        strcpy(remainCheck, frames[i]);
+
+        for(j = 0; j <= 8 - divLen; j++) {
+            if(remainCheck[j] == '1') {
+                for(k = 0; k < divLen; k++) {
+                    remainCheck[j + k] = (remainCheck[j + k] == divisor[k]) ? '0' : '1';
+                }
+            }
+        }
+        int frameCorrupted = 0;
+        for(j = 8 - crcBitsLen; j < 8; j++) {
+            if(remainCheck[j] != '0') {
+                frameCorrupted = 1;
+                break;
+            }
+        }
+        if(frameCorrupted) {
+            printf("-> Frame %d: ERROR DETECTED! (Current State: %s)\n", i + 1, frames[i]);
+            globalError = 1;
+        } else {
+            printf("-> Frame %d: NO ERROR .\n", i + 1);
+            for(j = 0; j < dataBitsPerFrame; j++) {
+                receivedBinaryStream[recStreamIdx++] = frames[i][j];
+            }
+        }
+    }
+    receivedBinaryStream[recStreamIdx] = '\0';
+
+    if(globalError) {
+        printf("\nResult: TRANSMISSION DISCARDED\n");
+    } else {
+        printf("\nResult: TRANSMISSION SUCCESSFUL\n");
+        char extractedText[100] = {0};
+        int textIdx = 0;
+
+        for(i = 0; i < textLen * 8; i += 8) {
+            char reconstructedChar = 0;
+            for(j = 0; j < 8; j++) {
+                int bitValue = receivedBinaryStream[i + j] - '0';
+                reconstructedChar |= (bitValue << (7 - j));
+            }
+            extractedText[textIdx++] = reconstructedChar;
+        }
+        extractedText[textIdx] = '\0';
+        printf("Extracted Text Message: %s\n", extractedText);
+    }
+
+    return 0;
+}
