@@ -1,0 +1,92 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+
+// Simple hash table structure for tracking global unique results
+#define HASH_SIZE 200003  // Large prime size to reduce bucket collisions
+
+typedef struct Node {
+    int val;
+    struct Node* next;
+} Node;
+
+// Inserts an item into the global hash table. Returns true if it's a new unique item.
+bool hashInsert(Node** hashTable, int value) {
+    int index = abs(value) % HASH_SIZE;
+    Node* curr = hashTable[index];
+    
+    // Check if the value already exists
+    while (curr != NULL) {
+        if (curr->val == value) {
+            return false; 
+        }
+        curr = curr->next;
+    }
+    
+    // Insert new unique node at the head of the chain
+    Node* newNode = (Node*)malloc(sizeof(Node));
+    newNode->val = value;
+    newNode->next = hashTable[index];
+    hashTable[index] = newNode;
+    return true;
+}
+
+// Clears all allocated nodes in the hash table to prevent leaks
+void freeHashTable(Node** hashTable) {
+    for (int i = 0; i < HASH_SIZE; i++) {
+        Node* curr = hashTable[i];
+        while (curr != NULL) {
+            Node* temp = curr;
+            curr = curr->next;
+            free(temp);
+        }
+    }
+}
+
+int subarrayBitwiseORs(int* arr, int arrSize) {
+    if (arrSize == 0) return 0;
+
+    // Allocate global hash table on the heap to avoid stack overflow bounds
+    Node** hashTable = (Node**)calloc(HASH_SIZE, sizeof(Node*));
+    int uniqueCount = 0;
+
+    // Fixed small arrays to track values ending at index i
+    // Max unique OR transitions possible for a 32-bit int is 32.
+    int current[33];
+    int nextCurrent[33];
+    int currentSize = 0;
+
+    for (int i = 0; i < arrSize; i++) {
+        int num = arr[i];
+        int nextSize = 0;
+
+        // 1. Seed the current element into the next frame evaluation
+        nextCurrent[nextSize++] = num;
+        if (hashInsert(hashTable, num)) {
+            uniqueCount++;
+        }
+
+        // 2. Perform OR step with previous accumulated values
+        for (int j = 0; j < currentSize; j++) {
+            int orVal = current[j] | num;
+            
+            // Inline duplicate prevention: only add if different from the last inserted value
+            if (orVal != nextCurrent[nextSize - 1]) {
+                nextCurrent[nextSize++] = orVal;
+                if (hashInsert(hashTable, orVal)) {
+                    uniqueCount++;
+                }
+            }
+        }
+
+        // 3. Move nextCurrent buffer values into current for next iteration
+        currentSize = nextSize;
+        for (int j = 0; j < currentSize; j++) {
+            current[j] = nextCurrent[j];
+        }
+    }
+
+    freeHashTable(hashTable);
+    free(hashTable);
+    return uniqueCount;
+}
