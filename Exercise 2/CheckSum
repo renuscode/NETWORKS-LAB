@@ -1,0 +1,160 @@
+#include <stdio.h>
+#include <string.h>
+char textData[100];
+char blocks[50][9];
+char checksum[9];
+void binaryAddition(char a[], char b[])
+{
+    int carry = 0;
+    int i;
+    for(i = 7; i >= 0; i--)
+    {
+        int sum = (a[i]-'0') + (b[i]-'0') + carry;
+        a[i] = (sum % 2) + '0';
+        carry = sum / 2;
+    } 
+    while(carry)
+    {
+        carry = 0;
+        for(i = 7; i >= 0; i--)
+        {
+            int sum = (a[i]-'0') + carry;
+            a[i] = (sum % 2) + '0';
+            carry = sum / 2;
+        }
+    }
+}
+
+int main()
+{
+    int textLen, i, j, numBlocks = 0;
+    char sum[9] = "00000000";
+    char receivedSum[9];
+    char choice;
+
+    printf("\n============================================\n");
+    printf("  8-BIT FRAME CHECKSUM ERROR DETECTION\n");
+    printf("============================================\n");
+    printf("Enter Text Message: ");
+    scanf(" %[^\n]", textData);
+    textLen = strlen(textData);
+    for(i = 0; i < textLen; i++)
+    {
+        char ch = textData[i];
+        for(j = 7; j >= 0; j--)
+        {
+            blocks[numBlocks][7 - j] = ((ch >> j) & 1) + '0';
+        }
+        blocks[numBlocks][8] = '\0';
+        numBlocks++;
+    }
+
+    printf("\nGenerated Data Blocks (Frames):\n");
+    for(i = 0; i < numBlocks; i++)
+    {
+        printf("Block %d ( '%c' ) : %s\n", i + 1, textData[i], blocks[i]);
+        binaryAddition(sum, blocks[i]);
+    }
+    for(i = 0; i < 8; i++)
+    {
+        if(sum[i] == '0')
+            checksum[i] = '1';
+        else
+            checksum[i] = '0';
+    }
+    checksum[8] = '\0';
+    printf("\nGenerated Checksum : %s\n", checksum);
+
+    // ---------------- Explicit Error Simulation Menu ----------------
+    printf("\nDo you want to simulate an error? (Y/N): ");
+    scanf(" %c", &choice);
+
+    if(choice == 'Y' || choice == 'y')
+    {
+        int simType = 0;
+        int numErrors = 0;
+
+        printf("\n--- Error Simulation Menu ---\n");
+        printf("1. Single-bit Error\n");
+        printf("2. Multi-bit Error\n");
+        printf("Enter your choice (1 or 2): ");
+        if (scanf("%d", &simType) != 1) {
+            while (getchar() != '\n'); // clear bad input buffer
+            simType = 0;
+        }
+
+        if (simType == 1) {
+            numErrors = 1;
+        } else if (simType == 2) {
+            printf("Enter total number of bits to flip (>1): ");
+            // Input protection for error count
+            if (scanf("%d", &numErrors) != 1 || numErrors <= 1) {
+                while (getchar() != '\n');
+                printf("Invalid count. Setting to default 2-bit error mode.\n");
+                numErrors = 2;
+            }
+        } else {
+            printf("Invalid selection! Transmission ongoing without changes.\n");
+            numErrors = 0;
+        }
+        for(i = 0; i < numErrors; i++) {
+            int blockNo, bitPos;
+            printf("\n[Flip %d of %d] Enter Block Number (1-%d): ", i + 1, numErrors, numBlocks);
+            if (scanf("%d", &blockNo) != 1) { while (getchar() != '\n'); continue; }
+            printf("[Flip %d of %d] Enter Bit Position to Flip (1-8): ", i + 1, numErrors);
+            if (scanf("%d", &bitPos) != 1) { while (getchar() != '\n'); continue; }
+            if(blockNo >= 1 && blockNo <= numBlocks && bitPos >= 1 && bitPos <= 8)
+            {
+                if(blocks[blockNo - 1][bitPos - 1] == '0')
+                    blocks[blockNo - 1][bitPos - 1] = '1';
+                else
+                    blocks[blockNo - 1][bitPos - 1] = '0';
+                printf("-> Success: Bit flipped successfully in Block %d.\n", blockNo);
+            }
+            else
+            {
+                printf("-> Invalid Selection! This specific flip skipped.\n");
+            }
+        }
+    }
+    printf("\nReceived Data Blocks:\n");
+    for(i = 0; i < numBlocks; i++)
+        printf("Block %d : %s\n", i + 1, blocks[i]);
+    printf("Checksum : %s\n", checksum);
+    strcpy(receivedSum, "00000000");
+    for(i = 0; i < numBlocks; i++)
+        binaryAddition(receivedSum, blocks[i]);
+    binaryAddition(receivedSum, checksum);
+    int errorDetected = 0;
+    for(i = 0; i < 8; i++)
+    {
+        if(receivedSum[i] != '1')
+        {
+            errorDetected = 1;
+            break;
+        }
+    }
+    if(errorDetected)
+    {
+        printf("\nResult : ERROR DETECTED\n");
+        printf("Message Discarded.\n");
+    }
+    else
+    {
+        printf("\nResult : NO ERROR DETECTED\n");
+        char extractedMessage[100] = {0};
+        for(i = 0; i < numBlocks; i++)
+        {
+            char reconstructedChar = 0;
+            for(j = 0; j < 8; j++)
+            {
+                int bitValue = blocks[i][j] - '0';
+                reconstructedChar |= (bitValue << (7 - j));
+            }
+            extractedMessage[i] = reconstructedChar;
+        }
+        extractedMessage[numBlocks] = '\0';
+        printf("Extracted Text Message : %s\n", extractedMessage);
+    }
+    return 0;
+}
