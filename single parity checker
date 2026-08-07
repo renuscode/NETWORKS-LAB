@@ -1,0 +1,196 @@
+#include <stdio.h>
+#include <string.h>
+
+#define MAX_BINARY 1000
+#define FRAME_SIZE 7
+
+// Convert string to binary
+void stringToBinary(char text[], char binary[])
+{
+    int k = 0;
+
+    for (int i = 0; text[i] != '\0'; i++)
+    {
+        unsigned char ch = text[i];
+
+        for (int j = 7; j >= 0; j--)
+        {
+            binary[k++] = ((ch >> j) & 1) + '0';
+        }
+    }
+
+    binary[k] = '\0';
+}
+
+// Convert binary back to string
+void binaryToString(char binary[], int originalBits)
+{
+    char message[100];
+    int k = 0;
+
+    for (int i = 0; i < originalBits; i += 8)
+    {
+        int value = 0;
+
+        for (int j = 0; j < 8; j++)
+        {
+            value = value * 2 + (binary[i + j] - '0');
+        }
+
+        message[k++] = (char)value;
+    }
+
+    message[k] = '\0';
+
+    printf("\nRecovered Message : %s\n", message);
+}
+
+int main()
+{
+    char text[100];
+    char binary[MAX_BINARY];
+
+    printf("Enter a String : ");
+    fgets(text, sizeof(text), stdin);
+
+    text[strcspn(text, "\n")] = '\0';
+
+    // Convert to binary
+    stringToBinary(text, binary);
+
+    int originalBits = strlen(binary);
+
+    printf("\nBinary Representation:\n%s\n", binary);
+
+    char transmitted[100][9];
+    int totalFrames = 0;
+
+    printf("\n========== SENDER ==========\n");
+
+    // Create frames and add odd parity
+    for (int i = 0; i < originalBits; i += FRAME_SIZE)
+    {
+        char frame[8];
+        int ones = 0;
+
+        for (int j = 0; j < FRAME_SIZE; j++)
+        {
+            if (i + j < originalBits)
+                frame[j] = binary[i + j];
+            else
+                frame[j] = '0'; // Padding
+
+            if (frame[j] == '1')
+                ones++;
+        }
+
+        frame[7] = '\0';
+
+        // Odd Parity
+        char parity;
+
+        if (ones % 2 == 0)
+            parity = '1';
+        else
+            parity = '0';
+
+        for (int j = 0; j < 7; j++)
+            transmitted[totalFrames][j] = frame[j];
+
+        transmitted[totalFrames][7] = parity;
+        transmitted[totalFrames][8] = '\0';
+
+        printf("Frame %2d : Data = %s  Parity = %c  --> %s\n",
+               totalFrames + 1,
+               frame,
+               parity,
+               transmitted[totalFrames]);
+
+        totalFrames++;
+    }
+
+    printf("\nFrames Sent:\n");
+
+    for (int i = 0; i < totalFrames; i++)
+        printf("Frame %2d : %s\n", i + 1, transmitted[i]);
+
+    // Error Simulation
+    char choice;
+
+    printf("\nDo you want to introduce an error? (y/n): ");
+    scanf(" %c", &choice);
+
+    if (choice == 'y' || choice == 'Y')
+    {
+        int frameNo, bitNo;
+
+        printf("Enter Frame Number (1-%d): ", totalFrames);
+        scanf("%d", &frameNo);
+
+        printf("Enter Bit Position (1-8): ");
+        scanf("%d", &bitNo);
+
+        if (transmitted[frameNo - 1][bitNo - 1] == '0')
+            transmitted[frameNo - 1][bitNo - 1] = '1';
+        else
+            transmitted[frameNo - 1][bitNo - 1] = '0';
+
+        printf("\nFrame %d After Error : %s\n",
+               frameNo,
+               transmitted[frameNo - 1]);
+    }
+
+    // Receiver
+    printf("\n========== RECEIVER ==========\n");
+
+    char receivedBinary[MAX_BINARY];
+    int index = 0;
+    int error = 0;
+
+    for (int i = 0; i < totalFrames; i++)
+    {
+        int ones = 0;
+
+        for (int j = 0; j < 8; j++)
+        {
+            if (transmitted[i][j] == '1')
+                ones++;
+        }
+
+        printf("Frame %2d : %s --> ", i + 1, transmitted[i]);
+
+        if (ones % 2 == 1)
+        {
+            printf("No Error\n");
+
+            // Extract only data bits
+            for (int j = 0; j < 7; j++)
+                receivedBinary[index++] = transmitted[i][j];
+        }
+        else
+        {
+            printf("Error Detected\n");
+            error = 1;
+        }
+    }
+
+    receivedBinary[index] = '\0';
+
+    if (error)
+    {
+        printf("\nMessage cannot be recovered because an error was detected.\n");
+    }
+    else
+    {
+        printf("\nExtracted Binary:\n");
+
+        for (int i = 0; i < originalBits; i++)
+            printf("%c", receivedBinary[i]);
+
+        printf("\n");
+
+        binaryToString(receivedBinary, originalBits);
+    }
+
+    return 0;
+}
