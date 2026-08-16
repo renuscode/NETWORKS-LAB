@@ -1,0 +1,417 @@
+#include <stdio.h>
+#include <string.h>
+void hamming74()
+{
+    int h[8] = {0};
+    int received[8] = {0};
+    char data[10];
+    int i;
+    int errorPosition;
+    int syndrome;
+    printf("\n====================================\n");
+    printf("          HAMMING (7,4)\n");
+    printf("====================================\n");
+    printf("\nSENDER SIDE\n");
+    printf("Enter 4 data bits: ");
+    scanf("%9s", data);
+    if (strlen(data) != 4){
+        printf("Invalid input! Enter exactly 4 bits.\n");
+        return;
+    }
+    for (i = 0; i < 4; i++)
+    {
+        if (data[i] != '0' && data[i] != '1')
+        {
+            printf("Invalid input! Enter only 0 and 1.\n");
+            return;
+        }
+    }
+    h[3] = data[0] - '0';
+    h[5] = data[1] - '0';
+    h[6] = data[2] - '0';
+    h[7] = data[3] - '0';
+    h[1] = h[3] ^ h[5] ^ h[7];
+    h[2] = h[3] ^ h[6] ^ h[7];
+    h[4] = h[5] ^ h[6] ^ h[7];
+    printf("\nGenerated Hamming Code: ");
+    for (i = 1; i <= 7; i++)
+    {
+        printf("%d", h[i]);
+    }
+    for (i = 1; i <= 7; i++){
+        received[i] = h[i];
+    }
+    printf("\n\nEnter error position to simulate (0 for no error): ");
+    scanf("%d", &errorPosition);
+    if (errorPosition == 0){
+        printf("No error introduced.\n");
+    }
+    else if (errorPosition >= 1 && errorPosition <= 7){
+        received[errorPosition] =
+            received[errorPosition] ^ 1;
+        printf("Error introduced at position %d\n",
+               errorPosition);
+    }
+    else
+    {
+        printf("Invalid error position!\n");
+        return;
+    }
+    printf("\nRECEIVER SIDE\n");
+    printf("Received Hamming Code: ");
+    for (i = 1; i <= 7; i++)
+    {
+        printf("%d", received[i]);
+    }
+    syndrome = 0;
+    if ((received[1] ^
+         received[3] ^
+         received[5] ^
+         received[7]) != 0)
+    {
+        syndrome += 1;
+    }
+
+    if ((received[2] ^
+         received[3] ^
+         received[6] != 0)
+        syndrome += 2;
+    if ((received[4] ^
+         received[5] ^
+         received[6] ^
+         received[7]) != 0)
+        syndrome += 4;
+}
+
+    printf("\n\nSyndrome = %d\n", syndrome);
+    if (syndrome == 0)
+    {
+        printf("No error detected.\n");
+    }
+    else
+    {
+        printf("Error detected at position: %d\n",
+               syndrome);
+
+        received[syndrome] =
+            received[syndrome] ^ 1;
+
+        printf("Error corrected successfully.\n");
+    }
+
+    /* Display corrected code */
+
+    printf("\nCorrected Hamming Code: ");
+
+    for (i = 1; i <= 7; i++)
+    {
+        printf("%d", received[i]);
+    }
+
+    /* Extract original data */
+
+    printf("\nOriginal Data: ");
+
+    printf("%d%d%d%d",
+           received[3],
+           received[5],
+           received[6],
+           received[7]);
+
+    printf("\n");
+}
+
+
+/* =========================================================
+   HAMMING (12,8)
+   ========================================================= */
+
+void hamming128()
+{
+    int h[13] = {0};
+    int received[13] = {0};
+
+    char data[20];
+
+    int i;
+    int errorPosition;
+    int syndrome;
+
+    printf("\n====================================\n");
+    printf("          HAMMING (12,8)\n");
+    printf("====================================\n");
+
+    /*
+       Position:
+
+       1  2  3  4  5  6  7  8  9  10 11 12
+       P1 P2 D1 P4 D2 D3 D4 P8 D5 D6 D7 D8
+    */
+
+    /* ---------------- SENDER SIDE ---------------- */
+
+    printf("\nSENDER SIDE\n");
+
+    printf("Enter 8 data bits: ");
+    scanf("%19s", data);
+
+    /* Validate length */
+
+    if (strlen(data) != 8)
+    {
+        printf("Invalid input! Enter exactly 8 bits.\n");
+        return;
+    }
+
+    /* Validate bits */
+
+    for (i = 0; i < 8; i++)
+    {
+        if (data[i] != '0' && data[i] != '1')
+        {
+            printf("Invalid input! Enter only 0 and 1.\n");
+            return;
+        }
+    }
+
+    /*
+       Place data bits
+    */
+
+    h[3]  = data[0] - '0';
+    h[5]  = data[1] - '0';
+    h[6]  = data[2] - '0';
+    h[7]  = data[3] - '0';
+
+    h[9]  = data[4] - '0';
+    h[10] = data[5] - '0';
+    h[11] = data[6] - '0';
+    h[12] = data[7] - '0';
+
+    /*
+       Calculate parity bits
+
+       P1 -> 1,3,5,7,9,11
+       P2 -> 2,3,6,7,10,11
+       P4 -> 4,5,6,7,12
+       P8 -> 8,9,10,11,12
+    */
+
+    h[1] =
+        h[3] ^
+        h[5] ^
+        h[7] ^
+        h[9] ^
+        h[11];
+
+    h[2] =
+        h[3] ^
+        h[6] ^
+        h[7] ^
+        h[10] ^
+        h[11];
+
+    h[4] =
+        h[5] ^
+        h[6] ^
+        h[7] ^
+        h[12];
+
+    h[8] =
+        h[9] ^
+        h[10] ^
+        h[11] ^
+        h[12];
+
+    printf("\nGenerated Hamming Code: ");
+
+    for (i = 1; i <= 12; i++)
+    {
+        printf("%d", h[i]);
+    }
+
+    /* Copy to receiver */
+
+    for (i = 1; i <= 12; i++)
+    {
+        received[i] = h[i];
+    }
+
+    /* ---------------- ERROR SIMULATION ---------------- */
+
+    printf("\n\nEnter error position to simulate (0 for no error): ");
+    scanf("%d", &errorPosition);
+
+    if (errorPosition == 0)
+    {
+        printf("No error introduced.\n");
+    }
+    else if (errorPosition >= 1 && errorPosition <= 12)
+    {
+        received[errorPosition] =
+            received[errorPosition] ^ 1;
+
+        printf("Error introduced at position %d\n",
+               errorPosition);
+    }
+    else
+    {
+        printf("Invalid error position!\n");
+        return;
+    }
+
+    /* ---------------- RECEIVER SIDE ---------------- */
+
+    printf("\nRECEIVER SIDE\n");
+
+    printf("Received Hamming Code: ");
+
+    for (i = 1; i <= 12; i++)
+    {
+        printf("%d", received[i]);
+    }
+
+    /*
+       Calculate syndrome
+    */
+
+    syndrome = 0;
+
+    /* S1 */
+
+    if ((received[1] ^
+         received[3] ^
+         received[5] ^
+         received[7] ^
+         received[9] ^
+         received[11]) != 0)
+    {
+        syndrome += 1;
+    }
+
+    /* S2 */
+
+    if ((received[2] ^
+         received[3] ^
+         received[6] ^
+         received[7] ^
+         received[10] ^
+         received[11]) != 0)
+    {
+        syndrome += 2;
+    }
+
+    /* S4 */
+
+    if ((received[4] ^
+         received[5] ^
+         received[6] ^
+         received[7] ^
+         received[12]) != 0)
+    {
+        syndrome += 4;
+    }
+
+    /* S8 */
+
+    if ((received[8] ^
+         received[9] ^
+         received[10] ^
+         received[11] ^
+         received[12]) != 0)
+    {
+        syndrome += 8;
+    }
+
+    printf("\n\nSyndrome = %d\n", syndrome);
+
+    /*
+       Detect and correct error
+    */
+
+    if (syndrome == 0)
+    {
+        printf("No error detected.\n");
+    }
+    else if (syndrome <= 12)
+    {
+        printf("Error detected at position: %d\n",
+               syndrome);
+
+        received[syndrome] =
+            received[syndrome] ^ 1;
+
+        printf("Error corrected successfully.\n");
+    }
+    else
+    {
+        printf("Error cannot be corrected.\n");
+        return;
+    }
+
+    /* Corrected code */
+
+    printf("\nCorrected Hamming Code: ");
+
+    for (i = 1; i <= 12; i++)
+    {
+        printf("%d", received[i]);
+    }
+
+    /* Extract original data */
+
+    printf("\nOriginal Data: ");
+
+    printf("%d%d%d%d%d%d%d%d",
+           received[3],
+           received[5],
+           received[6],
+           received[7],
+           received[9],
+           received[10],
+           received[11],
+           received[12]);
+
+    printf("\n");
+}
+
+
+/* =========================================================
+   MAIN
+   ========================================================= */
+
+int main()
+{
+    int choice;
+
+    printf("====================================\n");
+    printf("       HAMMING ERROR CORRECTION\n");
+    printf("====================================\n");
+
+    printf("\n1. Hamming (7,4)");
+    printf("\n2. Hamming (12,8)");
+    printf("\n3. Exit");
+
+    printf("\n\nEnter your choice: ");
+    scanf("%d", &choice);
+
+    switch (choice)
+    {
+        case 1:
+            hamming74();
+            break;
+
+        case 2:
+            hamming128();
+            break;
+
+        case 3:
+            printf("\nProgram terminated.\n");
+            break;
+
+        default:
+            printf("\nInvalid choice.\n");
+    }
+
+    return 0;
+}
