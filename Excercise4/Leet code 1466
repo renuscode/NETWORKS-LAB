@@ -1,0 +1,75 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+
+// Node structure to represent a directed/undirected edge in our graph mapping
+struct AdjNode {
+    int neighbor;
+    int is_original; // 1 if edge points parent -> child (needs flipping), 0 if child -> parent
+    struct AdjNode* next;
+};
+
+// Recursive DFS function to traverse outwards from city 0
+void dfs(int node, struct AdjNode** adj, bool* visited, int* change_count) {
+    visited[node] = true;
+    
+    struct AdjNode* curr = adj[node];
+    while (curr != NULL) {
+        int neighbor = curr->neighbor;
+        
+        if (!visited[neighbor]) {
+            // If the road points away from city 0 (is_original == 1), it must be reversed
+            if (curr->is_original == 1) {
+                (*change_count)++;
+            }
+            dfs(neighbor, adj, visited, change_count);
+        }
+        curr = curr->next;
+    }
+}
+
+int minReorder(int n, int** connections, int connectionsSize, int* connectionsColSize) {
+    // 1. Dynamically allocate adjacency list array pointers (one head per city node)
+    struct AdjNode** adj = (struct AdjNode**)calloc(n, sizeof(struct AdjNode*));
+    
+    // 2. Populate the undirected graph map with directional tags
+    for (int i = 0; i < connectionsSize; i++) {
+        int u = connections[i][0];
+        int v = connections[i][1];
+        
+        // Edge u -> v (Original road heading away from u)
+        struct AdjNode* node1 = (struct AdjNode*)malloc(sizeof(struct AdjNode));
+        node1->neighbor = v;
+        node1->is_original = 1;
+        node1->next = adj[u];
+        adj[u] = node1;
+        
+        // Edge v -> u (Artificial reverse tracking road)
+        struct AdjNode* node2 = (struct AdjNode*)malloc(sizeof(struct AdjNode));
+        node2->neighbor = u;
+        node2->is_original = 0;
+        node2->next = adj[v];
+        adj[v] = node2;
+    }
+
+    // 3. Setup traversal state trackers
+    bool* visited = (bool*)calloc(n, sizeof(bool));
+    int change_count = 0;
+
+    // 4. Start the traversal from city 0
+    dfs(0, adj, visited, &change_count);
+
+    // 5. Clean up allocated heap memory to avoid system memory leaks
+    free(visited);
+    for (int i = 0; i < n; i++) {
+        struct AdjNode* curr = adj[i];
+        while (curr != NULL) {
+            struct AdjNode* tmp = curr->next;
+            free(curr);
+            curr = tmp;
+        }
+    }
+    free(adj);
+
+    return change_count;
+}
