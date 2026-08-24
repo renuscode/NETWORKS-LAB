@@ -1,0 +1,118 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+
+#define MAX_STOPS 1000000
+#define MAX_BUSES 500
+
+// Structure to build an adjacency list: Stop -> List of Buses
+struct Edge {
+    int bus_idx;
+    struct Edge* next;
+};
+
+int numBusesToDestination(int** routes, int routesSize, int* routesColSize, int source, int target) {
+    // 1. Edge Case: Already at the destination
+    if (source == target) return 0;
+
+    // 2. Allocate the reverse-mapping heads array dynamically to save stack space
+    // stop_to_buses[stop_id] points to a linked list of buses serving that stop
+    struct Edge** stop_to_buses = (struct Edge**)calloc(MAX_STOPS, sizeof(struct Edge*));
+    
+    // Track if a stop has been discovered by any bus
+    bool* visited_stops = (bool*)calloc(MAX_STOPS, sizeof(bool));
+    
+    // Track if a bus route has already been taken
+    bool visited_buses[MAX_BUSES] = {false};
+
+    // 3. Populate the reverse map: Loop through every stop of every bus route
+    for (int i = 0; i < routesSize; i++) {
+        for (int j = 0; j < routesColSize[i]; j++) {
+            int stop = routes[i][j];
+            
+            // Insert the bus index at the head of the stop's linked list
+            struct Edge* new_edge = (struct Edge*)malloc(sizeof(struct Edge));
+            new_edge->bus_idx = i;
+            new_edge->next = stop_to_buses[stop];
+            stop_to_buses[stop] = new_edge;
+        }
+    }
+
+    // 4. BFS Queue Setup
+    // Maximum possible stops in queue equals total stops across all routes
+    int total_elements = 0;
+    for (int i = 0; i < routesSize; i++) total_elements += routesColSize[i];
+    int* queue = (int*)malloc((total_elements + 1) * sizeof(int));
+    
+    int head = 0, tail = 0;
+
+    // Enqueue source stop
+    queue[tail++] = source;
+    visited_stops[source] = true;
+
+    int bus_count = 0;
+
+    // 5. Multi-level BFS Loop
+    while (head < tail) {
+        int level_size = tail - head;
+        bus_count++; // Increment count as we move to the next transfer layer
+
+        for (int i = 0; i < level_size; i++) {
+            int current_stop = queue[head++];
+
+            // Get all buses passing through the current stop
+            struct Edge* curr_edge = stop_to_buses[current_stop];
+            while (curr_edge != NULL) {
+                int bus = curr_edge->bus_idx;
+
+                // If we haven't boarded this bus route yet
+                if (!visited_buses[bus]) {
+                    visited_buses[bus] = true;
+
+                    // Traverse all stops along this bus line
+                    for (int j = 0; j < routesColSize[bus]; j++) {
+                        int next_stop = routes[bus][j];
+
+                        if (next_stop == target) {
+                            // Free memory before returning to prevent leaks
+                            free(queue);
+                            free(visited_stops);
+                            for (int k = 0; k < MAX_STOPS; k++) {
+                                struct Edge* e = stop_to_buses[k];
+                                while (e) {
+                                    struct Edge* tmp = e->next;
+                                    free(e);
+                                    e = tmp;
+                                }
+                            }
+                            free(stop_to_buses);
+                            return bus_count; // Found destination!
+                        }
+
+                        // Enqueue unvisited stops along this line
+                        if (!visited_stops[next_stop]) {
+                            visited_stops[next_stop] = true;
+                            queue[tail++] = next_stop;
+                        }
+                    }
+                }
+                curr_edge = curr_edge->next;
+            }
+        }
+    }
+
+    // Free memory if target is unreachable
+    free(queue);
+    free(visited_stops);
+    for (int k = 0; k < MAX_STOPS; k++) {
+        struct Edge* e = stop_to_buses[k];
+        while (e) {
+            struct Edge* tmp = e->next;
+            free(e);
+            e = tmp;
+        }
+    }
+    free(stop_to_buses);
+
+    return -1; // Destination unreachable
+}
