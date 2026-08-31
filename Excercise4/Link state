@@ -1,250 +1,457 @@
 #include <stdio.h>
-#include <stdbool.h>
-#define INF 9999
-#define MAX_NODES 10
-struct RouteRow {
-    int cost;
-    int next_hop;
-};
-struct RoutingTable {
-    struct RouteRow route[MAX_NODES];
-};
-int num_nodes;
-int cost_matrix[MAX_NODES][MAX_NODES];
-struct RoutingTable tables[MAX_NODES];
-// Global arrays for route rebuilding inside Dijkstra processing
-int parent_map[MAX_NODES];
-// Standard Centralized Link State Dijkstra Engine
-void run_dijkstra() {
-    // Run independently for every router in the network map
-    for (int source = 0; source < num_nodes; source++) {
-        int dist[MAX_NODES];
-        bool visited[MAX_NODES];
-        int local_parent[MAX_NODES];
-        // 1. Initialization pass
-        for (int i = 0; i < num_nodes; i++) {
-            dist[i] = INF;
-            visited[i] = false;
-            local_parent[i] = -1;
-        }
-        dist[source] = 0;
+#include <string.h>
 
-        // 2. Main computation loop to locate minimum tentative paths
-        for (int count = 0; count < num_nodes - 1; count++) {
-            int min_distance = INF;
-            int u = -1;
+#define MAX 10
+#define INF 999
 
-            // Extract minimum distance node from the unvisited set
-            for (int v = 0; v < num_nodes; v++) {
-                if (!visited[v] && dist[v] <= min_distance) {
-                    min_distance = dist[v];
-                    u = v;
-                }
-            }
+int n;
 
-            if (u == -1 || dist[u] == INF) break; // Remaining nodes are unreachable
-            visited[u] = true;
+char name[MAX][20];
 
-            // Update/Relax neighbors of node u
-            for (int v = 0; v < num_nodes; v++) {
-                if (!visited[v] && cost_matrix[u][v] != INF && dist[u] != INF) {
-                    if (dist[u] + cost_matrix[u][v] < dist[v]) {
-                        dist[v] = dist[u] + cost_matrix[u][v];
-                        local_parent[v] = u;
-                    }
-                }
-            }
-        }
+/* Direct link cost */
+int cost[MAX][MAX];
 
-        // 3. Populate Link-State Forwarding tables and determine Next Hops
-        for (int dest = 0; dest < num_nodes; dest++) {
-            tables[source].route[dest].cost = dist[dest];
+/* Shortest distance from each router */
+int dist[MAX][MAX];
 
-            if (dest == source) {
-                tables[source].route[dest].next_hop = -1;
-            } else if (dist[dest] == INF) {
-                tables[source].route[dest].next_hop = -1;
-            } else {
-                // Backtrack from destination to find the first step taken from source
-                int curr = dest;
-                while (local_parent[curr] != source && local_parent[curr] != -1) {
-                    curr = local_parent[curr];
-                }
-                tables[source].route[dest].next_hop = curr;
-            }
-        }
+/* Next router in shortest path */
+int nextHop[MAX][MAX];
+
+
+/* =========================================================
+   Find router index using router name
+   ========================================================= */
+int findRouter(char rname[])
+{
+    for (int i = 0; i < n; i++)
+    {
+        if (strcmp(name[i], rname) == 0)
+            return i;
     }
+
+    return -1;
 }
 
-// Function to print standard standalone individual tables for each node
-void display_single_node_table(int node_id) {
-    printf("\n=============================================\n");
-    printf("     LINK-STATE ROUTING TABLE FOR NODE %d    \n", node_id);
-    printf("=============================================\n");
-    printf("  Destination  |     Cost     |   Next Hop   \n");
-    printf("---------------------------------------------\n");
-    for (int j = 0; j < num_nodes; j++) {
-        printf("    Node %-5d | ", j);
 
-        if (tables[node_id].route[j].cost == INF) {
-            printf("    INF     | ");
-        } else {
-            printf("    %-7d | ", tables[node_id].route[j].cost);
+/* =========================================================
+   Display routing matrix
+   ========================================================= */
+void displayMatrix(const char *title, int mat[MAX][MAX])
+{
+    printf("\n\n========================================================\n");
+    printf("                %s\n", title);
+    printf("========================================================\n");
+
+    printf("\n%-12s", "Router");
+
+    for (int j = 0; j < n; j++)
+        printf("%-8s", name[j]);
+
+    printf("\n");
+    printf("--------------------------------------------------------\n");
+
+    for (int i = 0; i < n; i++)
+    {
+        printf("%-12s", name[i]);
+
+        for (int j = 0; j < n; j++)
+        {
+            if (mat[i][j] >= INF)
+                printf("%-8s", "INF");
+            else
+                printf("%-8d", mat[i][j]);
         }
 
-        if (node_id == j) {
-            printf("Direct (Self)\n");
-        } else if (tables[node_id].route[j].next_hop == -1) {
-            printf("Unreachable\n");
-        } else {
-            printf("Node %-d\n", tables[node_id].route[j].next_hop);
-        }
-    }
-    printf("=============================================\n");
-}
-
-// Displays data as a global Cost Matrix where Source = Columns and Dest = Rows
-void display_transposed_cost_matrix() {
-    printf("\n======================================================\n");
-    printf("       LINK-STATE              \n");
-    printf("======================================================\n");
-
-    printf("Dest \\ Src\t");
-    for (int i = 0; i < num_nodes; i++) {
-        printf("Src [%d]\t", i);
-    }
-    printf("\n------------------------------------------------------\n");
-
-    for (int j = 0; j < num_nodes; j++) {
-        printf("Dest [%d]\t|\t", j);
-        for (int i = 0; i < num_nodes; i++) {
-            if (tables[i].route[j].cost == INF) {
-                printf("INF\t");
-            } else {
-                printf("%d\t", tables[i].route[j].cost);
-            }
-        }
         printf("\n");
     }
-    printf("======================================================\n");
 }
 
-// Traces and prints the shortest path string and total cost
-void trace_shortest_path() {
-    int src, dest;
-    printf("Enter Source Node (0-%d): ", num_nodes - 1);
-    if (scanf("%d", &src) != 1) return;
-    printf("Enter Destination Node (0-%d): ", num_nodes - 1);
-    if (scanf("%d", &dest) != 1) return;
-    if (src >= 0 && src < num_nodes && dest >= 0 && dest < num_nodes) {
-        if (tables[src].route[dest].cost == INF) {
-            printf("\nPath Status: No reachable link connection path exists.\n");
-        } else {
-            printf("\nOptimal Link State Path: Node %d", src);
-            int current = src;
-            while (current != dest) {
-                current = tables[current].route[dest].next_hop;
-                printf(" -> Node %d", current);
+
+/* =========================================================
+   Dijkstra's Algorithm
+   Runs from source router s
+   ========================================================= */
+void dijkstra(int s)
+{
+    int visited[MAX] = {0};
+
+    /* Initialize */
+    for (int i = 0; i < n; i++)
+    {
+        dist[s][i] = cost[s][i];
+
+        if (i != s && cost[s][i] < INF)
+            nextHop[s][i] = i;
+        else
+            nextHop[s][i] = -1;
+    }
+
+    dist[s][s] = 0;
+    nextHop[s][s] = s;
+
+    /* Source is visited */
+    visited[s] = 1;
+
+    /* Find shortest paths */
+    for (int count = 1; count < n; count++)
+    {
+        int u = -1;
+        int minDist = INF;
+
+        /* Find unvisited router with minimum distance */
+        for (int i = 0; i < n; i++)
+        {
+            if (!visited[i] && dist[s][i] < minDist)
+            {
+                minDist = dist[s][i];
+                u = i;
             }
-            printf("\nTotal Dijkstra Path Cost: %d\n", tables[src].route[dest].cost);
         }
-    } else {
-        printf("Error.\n");
+
+        /* No more reachable routers */
+        if (u == -1)
+            break;
+
+        visited[u] = 1;
+
+        /* Relax edges from u */
+        for (int v = 0; v < n; v++)
+        {
+            if (!visited[v] &&
+                cost[u][v] < INF &&
+                dist[s][u] + cost[u][v] < dist[s][v])
+            {
+                dist[s][v] =
+                    dist[s][u] + cost[u][v];
+
+                /*
+                   First hop from source s
+                   is the same first hop used
+                   to reach u.
+                */
+                nextHop[s][v] = nextHop[s][u];
+            }
+        }
     }
 }
 
-// Submenu helper that asks the user if they want to modify costs dynamically
-void ask_and_modify_cost() {
-    int change_choice;
-    printf("\nDo you want to change any link cost? (1 for Yes, 0 for No): ");
-    if (scanf("%d", &change_choice) != 1 || change_choice != 1) return;
 
-    int src, dest, new_cost;
-    printf("Enter Source Node (0-%d): ", num_nodes - 1);
-    if (scanf("%d", &src) != 1) return;
-    printf("Enter Destination Node (0-%d): ", num_nodes - 1);
-    if (scanf("%d", &dest) != 1) return;
-    printf("Enter New Link Cost (Use %d for INF): ", INF);
-    if (scanf("%d", &new_cost) != 1) return;
+/* =========================================================
+   Run Dijkstra for every router
+   ========================================================= */
+void runLinkState()
+{
+    for (int i = 0; i < n; i++)
+        dijkstra(i);
+}
 
-    if (src >= 0 && src < num_nodes && dest >= 0 && dest < num_nodes) {
-        if (src == dest) {
-            printf("Error: Cost to self cannot be changed from 0 baseline.\n");
+
+/* =========================================================
+   Initialize Dijkstra tables
+   ========================================================= */
+void initializeTables()
+{
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = 0; j < n; j++)
+        {
+            dist[i][j] = INF;
+            nextHop[i][j] = -1;
+        }
+    }
+}
+
+
+/* =========================================================
+   Read network input
+   ========================================================= */
+void readInput()
+{
+    printf("========================================================\n");
+    printf("             LINK STATE ROUTING ALGORITHM\n");
+    printf("========================================================\n");
+
+    printf("\nEnter number of routers: ");
+    scanf("%d", &n);
+
+    printf("\nEnter router names:\n");
+
+    for (int i = 0; i < n; i++)
+        scanf("%s", name[i]);
+
+    printf("\nEnter the cost matrix:\n");
+    printf("(Enter 0 for same router and -1 for no direct link)\n\n");
+
+    for (int i = 0; i < n; i++)
+    {
+        printf("Enter row for %s: ", name[i]);
+
+        for (int j = 0; j < n; j++)
+        {
+            int value;
+
+            scanf("%d", &value);
+
+            if (i == j)
+            {
+                cost[i][j] = 0;
+            }
+            else if (value == -1)
+            {
+                cost[i][j] = INF;
+            }
+            else
+            {
+                cost[i][j] = value;
+            }
+        }
+    }
+}
+
+
+/* =========================================================
+   Update an edge
+   ========================================================= */
+void updateEdge()
+{
+    char node1[20];
+    char node2[20];
+
+    printf("\n\n========================================================\n");
+    printf("                     UPDATE EDGE\n");
+    printf("========================================================\n");
+
+    printf("\nEnter first node: ");
+    scanf("%s", node1);
+
+    printf("Enter second node: ");
+    scanf("%s", node2);
+
+    int u = findRouter(node1);
+    int v = findRouter(node2);
+
+    if (u == -1 || v == -1)
+    {
+        printf("\nInvalid router name!\n");
+        return;
+    }
+
+    if (u == v)
+    {
+        printf("\nA router cannot be connected to itself.\n");
+        return;
+    }
+
+    printf("\nCurrent cost between %s and %s = ",
+           node1, node2);
+
+    if (cost[u][v] >= INF)
+        printf("No direct link\n");
+    else
+        printf("%d\n", cost[u][v]);
+
+    int newCost;
+
+    printf("\nEnter new cost: ");
+    scanf("%d", &newCost);
+
+    if (newCost <= 0)
+    {
+        printf("\nInvalid cost! Cost must be greater than 0.\n");
+        return;
+    }
+
+    /*
+       Replace the old direct edge cost
+       with the new cost.
+    */
+    cost[u][v] = newCost;
+    cost[v][u] = newCost;
+
+    printf("\nEdge %s-%s updated successfully.\n",
+           node1, node2);
+
+    /*
+       Reset old shortest-path information.
+    */
+    initializeTables();
+
+    /*
+       Run Dijkstra again for every router.
+    */
+    runLinkState();
+
+    printf("\nRouting tables recalculated successfully.\n");
+}
+
+
+/* =========================================================
+   Find shortest path, cost and next hops
+   ========================================================= */
+void findShortestPath()
+{
+    char sourceName[20];
+    char destinationName[20];
+
+    printf("\n\n========================================================\n");
+    printf("                TO FIND SHORTEST PATH\n");
+    printf("========================================================\n");
+
+    printf("\nEnter starting node: ");
+    scanf("%s", sourceName);
+
+    printf("Enter ending node: ");
+    scanf("%s", destinationName);
+
+    int source = findRouter(sourceName);
+    int destination = findRouter(destinationName);
+
+    if (source == -1)
+    {
+        printf("\nInvalid starting node!\n");
+        return;
+    }
+
+    if (destination == -1)
+    {
+        printf("\nInvalid ending node!\n");
+        return;
+    }
+
+    /* Same source and destination */
+    if (source == destination)
+    {
+        printf("\nStarting Node : %s\n", sourceName);
+        printf("Ending Node   : %s\n", destinationName);
+        printf("Shortest Path : %s\n", sourceName);
+        printf("Total Cost    : 0\n");
+
+        return;
+    }
+
+    /* No path */
+    if (dist[source][destination] >= INF)
+    {
+        printf("\nNo path exists between %s and %s.\n",
+               sourceName, destinationName);
+
+        return;
+    }
+
+    printf("\nStarting Node : %s\n", sourceName);
+    printf("Ending Node   : %s\n", destinationName);
+
+    /* =====================================================
+       Print shortest path
+       ===================================================== */
+
+    printf("Shortest Path : ");
+
+    int current = source;
+
+    printf("%s", name[current]);
+
+    while (current != destination)
+    {
+        int next = nextHop[current][destination];
+
+        if (next == -1)
+        {
+            printf("\nPath cannot be determined.\n");
             return;
         }
 
-        cost_matrix[src][dest] = new_cost;
-        printf("\nRecalculating routing layout using Dijkstra's Algorithm...\n");
-        run_dijkstra();
-        printf("⚡ Network layout updated successfully!\n");
-    } else {
-        printf("Error: Node parameters out of valid bounds.\n");
+        printf(" -> %s", name[next]);
+
+        current = next;
+    }
+
+    printf("\nTotal Cost    : %d\n",
+           dist[source][destination]);
+
+
+    /* =====================================================
+       Print next hop for every step in shortest path
+       ===================================================== */
+
+    printf("\nNext Hop:\n");
+
+    current = source;
+
+    while (current != destination)
+    {
+        int next = nextHop[current][destination];
+
+        if (next == -1)
+        {
+            printf("Path cannot be determined.\n");
+            return;
+        }
+
+        printf("%s -> %s\n",
+               name[current],
+               name[next]);
+
+        current = next;
     }
 }
 
-int main() {
-    printf("Enter number of network nodes (Max %d): ", MAX_NODES);
-    if (scanf("%d", &num_nodes) != 1 || num_nodes <= 0 || num_nodes > MAX_NODES) {
-        printf("Invalid node capacity bound.\n");
-        return 1;
-    }
 
-    printf("\nEnter the Adjacency Cost Matrix r (Use %d for INF).\n", INF);
-    printf("Example for a 3-node row format: 0 2 7\n\n");
+/* =========================================================
+   Main
+   ========================================================= */
+int main()
+{
+    char choice;
 
-    for (int i = 0; i < num_nodes; i++) {
-        printf("Row for Node %d: ", i);
-        for (int j = 0; j < num_nodes; j++) {
-            if (scanf("%d", &cost_matrix[i][j]) != 1) {
-                printf("Invalid input error.\n");
-                return 1;
-            }
-            if (i == j) {
-                cost_matrix[i][j] = 0;
-            }
+    /* Step 1: Read network */
+    readInput();
+
+    /* Step 2: Initialize */
+    initializeTables();
+
+    /* Step 3: Display initial routing table */
+    displayMatrix("INITIAL ROUTING TABLE", cost);
+
+    /* Step 4: Run Link State Algorithm */
+    runLinkState();
+
+    /* Step 5: Display final routing table */
+    displayMatrix("FINAL ROUTING TABLE", dist);
+
+    /*
+       Step 6 onwards:
+       Find shortest path first.
+       Then ask whether to update an edge.
+    */
+    do
+    {
+        /* Find shortest path */
+        findShortestPath();
+
+        /*
+           Ask for update after displaying
+           shortest path.
+        */
+        printf("\n\nDo you want to update an edge? (y/n): ");
+        scanf(" %c", &choice);
+
+        if (choice == 'y' || choice == 'Y')
+        {
+            /* Update edge */
+            updateEdge();
+
+            /* Display updated routing table */
+            displayMatrix("UPDATED ROUTING TABLE", dist);
         }
-    }
 
-    // Run Dijkstra computation
-    run_dijkstra();
-    printf("\n Dijkstra link state conversion complete.\n");
+    } while (choice == 'y' || choice == 'Y');
 
-    int choice = 0;
-    while (choice != 3) {
-        printf("\n===== LINK STATE DISPLAY OPTIONS =====\n");
-        printf("1. Print as single Unified Cost Matrix\n");
-        printf("2. Print Structured Table for a specific Node\n");
-        printf("3. Exit Program\n");
-        printf("Enter your choice (1-3): ");
-        if (scanf("%d", &choice) != 1) break;
 
-        switch (choice) {
-            case 1:
-                display_transposed_cost_matrix();
-                trace_shortest_path();
-                ask_and_modify_cost();
-                break;
-            case 2: {
-                int target_node;
-                printf("Which Node's link state table would you like to display? (0-%d): ", num_nodes - 1);
-                if (scanf("%d", &target_node) == 1) {
-                    if (target_node >= 0 && target_node < num_nodes) {
-                        display_single_node_table(target_node);
-                        trace_shortest_path();
-                        ask_and_modify_cost();
-                    } else {
-                        printf("Invalid Node ID selection!\n");
-                    }
-                }
-                break;
-            }
-            case 3:
-                printf("Powering down link-state simulator framework.\n");
-                break;
-            default:
-                printf("Invalid selection index. Try again.\n");
-        }
-    }
+    /* Program termination */
+    printf("\n\n========================================================\n");
+    printf("                 PROGRAM TERMINATED\n");
+    printf("========================================================\n");
 
     return 0;
 }
