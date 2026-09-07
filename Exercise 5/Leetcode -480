@@ -1,0 +1,94 @@
+#include <stdlib.h>
+#include <stdio.h>
+
+// Helper function to perform binary search to find insertion index
+int findInsertIndex(double* window, int size, double val) {
+    int low = 0, high = size - 1;
+    while (low <= high) {
+        int mid = low + (high - low) / 2;
+        if (window[mid] == val) {
+            return mid;
+        } else if (window[mid] < val) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return low;
+}
+
+// Helper function to perform binary search to find an exact element to remove
+int findRemoveIndex(double* window, int size, double val) {
+    int low = 0, high = size - 1;
+    while (low <= high) {
+        int mid = low + (high - low) / 2;
+        if (window[mid] == val) {
+            return mid;
+        } else if (window[mid] < val) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return -1;
+}
+
+double* medianSlidingWindow(int* nums, int numsSize, int k, int* returnSize) {
+    *returnSize = numsSize - k + 1;
+    double* result = (double*)malloc(sizeof(double) * (*returnSize));
+    
+    // Maintain a sorted window array of doubles to prevent any integer overflow during median division
+    double* window = (double*)malloc(sizeof(double) * k);
+    
+    // Initialize and sort the very first window
+    for (int i = 0; i < k; i++) {
+        window[i] = (double)nums[i];
+    }
+    
+    // Simple initial sort for the first window
+    for (int i = 1; i < k; i++) {
+        double key = window[i];
+        int j = i - 1;
+        while (j >= 0 && window[j] > key) {
+            window[j + 1] = window[j];
+            j--;
+        }
+        window[j + 1] = key;
+    }
+    
+    // Capture the median of the first window
+    if (k % 2 == 1) {
+        result[0] = window[k / 2];
+    } else {
+        result[0] = (window[k / 2 - 1] + window[k / 2]) / 2.0;
+    }
+    
+    // Slide across the remaining elements
+    for (int i = k; i < numsSize; i++) {
+        double val_to_remove = (double)nums[i - k];
+        double val_to_add = (double)nums[i];
+        
+        // 1. Find and remove the oldest element shifting out of the window
+        int rm_idx = findRemoveIndex(window, k, val_to_remove);
+        for (int j = rm_idx; j < k - 1; j++) {
+            window[j] = window[j + 1];
+        }
+        
+        // 2. Binary search the correct index for the incoming element
+        int ins_idx = findInsertIndex(window, k - 1, val_to_add);
+        for (int j = k - 1; j > ins_idx; j--) {
+            window[j] = window[j - 1];
+        }
+        window[ins_idx] = val_to_add;
+        
+        // 3. Store the precise median
+        if (k % 2 == 1) {
+            result[i - k + 1] = window[k / 2];
+        } else {
+            result[i - k + 1] = (window[k / 2 - 1] + window[k / 2]) / 2.0;
+        }
+    }
+    
+    free(window);
+    return result;
+}
