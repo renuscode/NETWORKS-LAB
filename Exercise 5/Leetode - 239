@@ -1,0 +1,51 @@
+#include <stdlib.h>
+
+/**
+ * Note: The returned array must be dynamically allocated.
+ * The size of the array is returned via the returnSize pointer.
+ */
+int* maxSlidingWindow(int* nums, int numsSize, int k, int* returnSize) {
+    if (numsSize == 0 || k == 0) {
+        *returnSize = 0;
+        return NULL;
+    }
+    
+    // Total number of windows
+    int resSize = numsSize - k + 1;
+    *returnSize = resSize;
+    int* res = (int*)malloc(resSize * sizeof(int));
+    
+    // Allocate space for the deque (stores indices)
+    // The maximum size the deque will ever need is numsSize
+    int* deque = (int*)malloc(numsSize * sizeof(int));
+    int head = 0; // Front of the queue
+    int tail = 0; // Back of the queue
+    
+    int resIdx = 0;
+    
+    for (int i = 0; i < numsSize; i++) {
+        // 1. Remove indices that are out of the current window bounds
+        // (head < tail ensures the deque is not empty)
+        if (head < tail && deque[head] < i - k + 1) {
+            head++;
+        }
+        
+        // 2. Remove smaller elements from the back as they won't be maximums
+        while (head < tail && nums[deque[tail - 1]] <= nums[i]) {
+            tail--;
+        }
+        
+        // 3. Add the current element's index to the back
+        deque[tail++] = i;
+        
+        // 4. Append the max of the window to the result (starts once window reaches size k)
+        if (i >= k - 1) {
+            res[resIdx++] = nums[deque[head]];
+        }
+    }
+    
+    // Clean up the temporary deque memory
+    free(deque);
+    
+    return res;
+}
