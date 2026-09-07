@@ -1,0 +1,190 @@
+#include <assert.h>
+#include <limits.h>
+#include <math.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+char* readline();
+char** split_string(char*);
+
+// Complete the riddle function below.
+
+/**
+ * Note: The returned array must be malloced, assume caller frees it.
+ */
+long* riddle(int arr_count, long* arr, int* result_count) {
+    *result_count = arr_count;
+    // Map with long to prevent tracking constraints issues
+    long* res = (long*)calloc(arr_count + 1, sizeof(long));
+    
+    int* left = (int*)malloc(arr_count * sizeof(int));
+    int* right = (int*)malloc(arr_count * sizeof(int));
+    int* stack = (int*)malloc(arr_count * sizeof(int));
+    int top = -1;
+    
+    // 1. Initialize boundaries
+    for (int i = 0; i < arr_count; i++) {
+        left[i] = -1;
+        right[i] = arr_count;
+    }
+    
+    // 2. Populate left boundaries using a monotonic increasing stack
+    for (int i = 0; i < arr_count; i++) {
+        while (top >= 0 && arr[stack[top]] >= arr[i]) {
+            top--;
+        }
+        if (top >= 0) {
+            left[i] = stack[top];
+        }
+        stack[++top] = i;
+    }
+    
+    // Clear stack for the next pass
+    top = -1;
+    
+    // 3. Populate right boundaries using a monotonic increasing stack
+    for (int i = arr_count - 1; i >= 0; i--) {
+        while (top >= 0 && arr[stack[top]] >= arr[i]) {
+            top--;
+        }
+        if (top >= 0) {
+            right[i] = stack[top];
+        }
+        stack[++top] = i;
+    }
+    
+    // 4. Find max element for each calculated window size
+    for (int i = 0; i < arr_count; i++) {
+        int window_size = right[i] - left[i] - 1;
+        if (arr[i] > res[window_size]) {
+            res[window_size] = arr[i];
+        }
+    }
+    
+    // 5. Backward propagation to fill missing smaller window sizes
+    for (int i = arr_count - 1; i >= 1; i--) {
+        if (res[i + 1] > res[i]) {
+            res[i] = res[i + 1];
+        }
+    }
+    
+    // Shift results down to return a 0-indexed array matching HackerRank's output format
+    long* final_res = (long*)malloc(arr_count * sizeof(long));
+    for (int i = 0; i < arr_count; i++) {
+        final_res[i] = res[i + 1];
+    }
+    
+    // Clean up temporary dynamically allocated memory
+    free(left);
+    free(right);
+    free(stack);
+    free(res);
+    
+    return final_res;
+}
+
+int main()
+{
+    FILE* fptr = fopen(getenv("OUTPUT_PATH"), "w");
+
+    char* n_endptr;
+    char* n_str = readline();
+    int n = strtol(n_str, &n_endptr, 10);
+
+    if (n_endptr == n_str || *n_endptr != '\0') { exit(EXIT_FAILURE); }
+
+    char** arr_temp = split_string(readline());
+
+    long* arr = malloc(n * sizeof(long));
+
+    for (int i = 0; i < n; i++) {
+        char* arr_item_endptr;
+        char* arr_item_str = *(arr_temp + i);
+        long arr_item = strtol(arr_item_str, &arr_item_endptr, 10);
+
+        if (arr_item_endptr == arr_item_str || *arr_item_endptr != '\0') { exit(EXIT_FAILURE); }
+
+        *(arr + i) = arr_item;
+    }
+
+    int arr_count = n;
+
+    int res_count;
+    long* res = riddle(arr_count, arr, &res_count);
+
+    for (int i = 0; i < res_count; i++) {
+        fprintf(fptr, "%ld", *(res + i));
+
+        if (i != res_count - 1) {
+            fprintf(fptr, " ");
+        }
+    }
+
+    fprintf(fptr, "\n");
+
+    fclose(fptr);
+
+    return 0;
+}
+
+char* readline() {
+    size_t alloc_length = 1024;
+    size_t data_length = 0;
+    char* data = malloc(alloc_length);
+
+    while (true) {
+        char* cursor = data + data_length;
+        char* line = fgets(cursor, alloc_length - data_length, stdin);
+
+        if (!line) {
+            break;
+        }
+
+        data_length += strlen(cursor);
+
+        if (data_length < alloc_length - 1 || data[data_length - 1] == '\n') {
+            break;
+        }
+
+        alloc_length <<= 1;
+
+        data = realloc(data, alloc_length);
+    }
+
+    if (data[data_length - 1] == '\n') {
+        data[data_length - 1] = '\0';
+
+        data = realloc(data, data_length);
+    } else {
+        data = realloc(data, data_length + 1);
+
+        data[data_length] = '\0';
+    }
+
+    return data;
+}
+
+char** split_string(char* str) {
+    char** splits = NULL;
+    char* token = strtok(str, " ");
+
+    int spaces = 0;
+
+    while (token) {
+        splits = realloc(splits, sizeof(char*) * ++spaces);
+
+        if (!splits) {
+            return splits;
+        }
+
+        splits[spaces - 1] = token;
+
+        token = strtok(NULL, " ");
+    }
+
+    return splits;
+}
